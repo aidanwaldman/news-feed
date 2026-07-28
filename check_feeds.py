@@ -54,15 +54,18 @@ def parse_items(xml_bytes: bytes):
 
 def notify(source: str, title: str, link: str, desc: str):
     body = (desc[:300] + "...") if len(desc) > 300 else desc
+    payload = json.dumps({
+        "topic": NTFY_TOPIC,
+        "title": f"[{source}] {title}"[:250],
+        "message": body,
+        "click": link,
+        "tags": ["moneybag"],
+        "priority": 4,
+    }).encode("utf-8")
     req = urllib.request.Request(
-        f"https://ntfy.sh/{NTFY_TOPIC}",
-        data=body.encode("utf-8"),
-        headers={
-            "Title": f"[{source}] {title}"[:250],
-            "Click": link,
-            "Tags": "moneybag",
-            "Priority": "high",
-        },
+        "https://ntfy.sh/",
+        data=payload,
+        headers={"Content-Type": "application/json"},
         method="POST",
     )
     urllib.request.urlopen(req, timeout=30)
