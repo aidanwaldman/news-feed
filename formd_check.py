@@ -323,7 +323,7 @@ def notify(f: dict, filing_url: str):
 # ---------------------------------------------------------------- main
 
 def main():
-    today = date.today()
+    today = now_et().date()  # Eastern calendar day, not UTC
     seen_file = Path(__file__).parent / "formd_seen.json"
     seen = set(json.loads(seen_file.read_text())) if seen_file.exists() else set()
     first_run = not seen_file.exists()
