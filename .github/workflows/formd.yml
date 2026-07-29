@@ -1,0 +1,47 @@
+name: formd
+
+on:
+  schedule:
+    - cron: "*/10 * * * 1-5"   # every 10 min, weekdays (EDGAR hours span 6am-10pm ET)
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: formd
+  cancel-in-progress: false
+
+jobs:
+  formd:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Poll live feed and build page
+        run: python3 formd_check.py
+
+      - name: Commit state, log, and page
+        run: |
+          git config user.name "wire-desk-bot"
+          git config user.email "actions@github.com"
+          git add formd_log/ formd_data/ docs/ pending.json formd_seen.json
+          git diff --cached --quiet || git commit -m "formd update"
+          git pull --rebase origin main
+          git push
+
+      - name: Wait for GitHub Pages deploy
+        run: |
+          if [ "$(cat pending.json)" != "[]" ]; then sleep 120; fi
+
+      - name: Send notifications
+        env:
+          FORMD_PHASE: notify
+        run: python3 formd_check.py
+
+      - name: Alert on failure
+        if: failure()
+        run: |
+          curl -s -X POST "https://ntfy.sh/aw-wire-desk-576dbd" \
+            -H "Title: formd run FAILED" -H "Tags: rotating_light" -H "Priority: high" \
+            -d "A Form D poll run did not complete. Check the Actions tab."
