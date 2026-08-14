@@ -71,7 +71,21 @@ LOG_DIR = Path(__file__).parent / "formd_log"
 
 # ---------------------------------------------------------------- helpers
 
-def fetch(url: str) -> bytes:
+def fetch(url: str, attempts: int = 3, backoff: int = 30) -> bytes:
+    """GET with retries: SEC/EDGAR occasionally refuses a request under
+    load. Wait and retry before letting the run fail."""
+    last_err = None
+    for i in range(attempts):
+        try:
+            return _fetch_once(url)
+        except Exception as e:
+            last_err = e
+            if i < attempts - 1:
+                time.sleep(backoff)
+    raise last_err
+
+
+def _fetch_once(url: str) -> bytes:
     req = urllib.request.Request(url, headers={"User-Agent": UA})
     with urllib.request.urlopen(req, timeout=30) as resp:
         return resp.read()
