@@ -1,6 +1,3 @@
-
-Formd check · PY
-#!/usr/bin/env python3
 """
 formd_check.py: poll EDGAR's live filing feed for new Form Ds, apply
 static filters, and surface early-stage tech equity raises within minutes
