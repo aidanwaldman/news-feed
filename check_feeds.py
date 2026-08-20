@@ -53,11 +53,11 @@ def parse_items(xml_bytes: bytes):
 
 
 def notify(source: str, title: str, link: str, desc: str):
-    body = (desc[:300] + "...") if len(desc) > 300 else desc
+    # Source is the banner's bold top line; the headline is the body.
     payload = json.dumps({
         "topic": NTFY_TOPIC,
-        "title": f"[{source}] {title}"[:250],
-        "message": body,
+        "title": source,
+        "message": title[:400],
         "click": link,
         "tags": ["moneybag"],
         "priority": 4,
