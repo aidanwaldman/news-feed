@@ -28,7 +28,7 @@ FEEDS = [
 
 SEEN_FILE = Path(__file__).parent / "seen.json"
 SEEN_CAP = 500  # keep the state file small
-MAX_AGE_HOURS = 48  # skip stale items feeds sometimes re-emit
+MAX_AGE_HOURS = 6  # skip stale items feeds sometimes re-emit
 
 # ---------------------------------------------------------------- helpers
 
