@@ -11,6 +11,8 @@ import json
 import re
 import urllib.request
 import xml.etree.ElementTree as ET
+from datetime import datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 
 # ---------------------------------------------------------------- config
@@ -26,6 +28,7 @@ FEEDS = [
 
 SEEN_FILE = Path(__file__).parent / "seen.json"
 SEEN_CAP = 500  # keep the state file small
+MAX_AGE_HOURS = 48  # skip stale items feeds sometimes re-emit
 
 # ---------------------------------------------------------------- helpers
 
@@ -39,17 +42,30 @@ def strip_html(text: str) -> str:
     return re.sub(r"<[^>]+>", " ", text or "").strip()
 
 
+def is_fresh(pubdate_str: str) -> bool:
+    """True if the item is recent (or has no parseable date). Feeds
+    occasionally re-emit weeks-old items with broken links; skip those."""
+    try:
+        dt = parsedate_to_datetime(pubdate_str)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+    except Exception:
+        return True  # no usable date: give it the benefit of the doubt
+    return datetime.now(timezone.utc) - dt <= timedelta(hours=MAX_AGE_HOURS)
+
+
 def parse_items(xml_bytes: bytes):
-    """Yield (id, title, link, description) for each <item> in an RSS feed."""
+    """Yield (id, title, link, description, pubdate) for each <item>."""
     root = ET.fromstring(xml_bytes)
     for item in root.iter("item"):
         title = (item.findtext("title") or "").strip()
         link = (item.findtext("link") or "").strip()
         guid = (item.findtext("guid") or "").strip()
         desc = strip_html(item.findtext("description") or "")
+        pub = (item.findtext("pubDate") or "").strip()
         uid = guid or link or title
         if uid:
-            yield uid, title, link, desc
+            yield uid, title, link, desc, pub
 
 
 def notify(source: str, title: str, link: str, desc: str):
@@ -87,7 +103,7 @@ def main():
             print(f"WARN: failed to fetch {source}: {e}")
             continue
 
-        for uid, title, link, desc in parse_items(xml_bytes):
+        for uid, title, link, desc, pub in parse_items(xml_bytes):
             if uid in seen_set:
                 continue
             seen_set.add(uid)
@@ -95,6 +111,10 @@ def main():
 
             if first_run:
                 continue  # seed the state silently, no notification blast
+
+            if not is_fresh(pub):
+                print(f"SKIP (stale, {pub}): {title}")
+                continue
 
             try:
                 notify(source, title, link, desc)
