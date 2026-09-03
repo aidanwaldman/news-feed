@@ -2,8 +2,8 @@ name: news-feed
 
 on:
   schedule:
-    - cron: "*/5 * * * *"   # every 5 minutes (GitHub's minimum)
-  workflow_dispatch: {}      # lets you trigger it manually from the Actions tab
+    - cron: "*/5 * * * *"   # backstop schedule; cron-job.org is the real heartbeat
+  workflow_dispatch: {}      # lets cron-job.org and you trigger it
 
 permissions:
   contents: write            # needed to commit seen.json back
@@ -27,5 +27,10 @@ jobs:
           git config user.email "actions@github.com"
           git add seen.json
           git diff --cached --quiet || git commit -m "update seen state"
-          git pull --rebase origin main
-          git push
+          for i in 1 2 3 4 5; do
+            git pull --rebase origin main && git push && exit 0
+            echo "push collided, retrying ($i)..."
+            sleep 3
+          done
+          echo "push failed after 5 attempts"
+          exit 1
